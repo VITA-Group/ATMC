@@ -14,7 +14,7 @@ In this repo, we present one example implementation of ATMC robust learning fram
 
 If you find this repo useful, please cite:
 ```
-@InProceedings{pmlr-v97-wu19e,
+@InProceedings{gui2019ATMC,
   title = 	 {Model Compression with Adversarial Robustness: A Unified Optimization Framework},
   author = 	 {Gui, Shupeng and Wang, Haotao and Yang, Haichuan and Yu, Chen and Wang, Zhangyang and Liu, Ji},
   booktitle = 	 {Proceedings of the 33rd Conference on Neural Information Processing Systems},
