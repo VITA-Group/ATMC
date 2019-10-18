@@ -32,15 +32,11 @@ class DeepOriginalModel(nn.Module):
         src_dict = dict(model_src.named_parameters())
         src_buffer_dict = dict(model_src.named_buffers())
         for n, w in self.named_parameters():
-            # print(src_dict.keys())
             if n.split(".")[-1] not in weight_name or n.split(".")[-2][:2] == "bn":
-                # print(n.split(".")[-2][:2])
                 w.data.copy_(src_dict[n].data)
-            # print(n)
-            # print(n.strip())
+
         for n, buffer in self.named_buffers():
             buffer.data.copy_(src_buffer_dict[n].data)
-            # print(n)
                 
 
     def duplicate_plus(self, extra_w, extra_u):
@@ -57,13 +53,7 @@ class DeepOriginalModel(nn.Module):
         c = 0
         for n, m in self.named_param_modules():
             m.weight.data.copy_(m.weight.data + (extra_ws[n].weight.data - extra_zs[n].weight.data))
-        #     b += (m.weight.data ** 2).sum().item()
-        #     c += ((extra_ws[n].weight.data - extra_zs[n].weight.data)**2).sum().item()
-        # print(b)
-        # print(c)
-            # if flag:
-            #     print((m.weight.data ** 2).sum().item())
-            #     flag = False
+
 
     def admm_regularizer(self, extra_u, extra_z):
         extra_us = dict(extra_u.named_param_modules())
@@ -79,7 +69,6 @@ class DeepOriginalModel(nn.Module):
     def get_ranks(self):
         ranks = []
         for m in self.param_modules():
-            # print(type(m))
             if isinstance(m, nn.Conv2d):
                 if m.groups != 1:
                     continue
@@ -100,7 +89,6 @@ class DeepOriginalModel(nn.Module):
         print("scale pre, U {}, V{}".format(uscale, vscale))
         u = u / uscale * torch.sqrt(uscale * vscale)
         v = v / vscale * torch.sqrt(vscale * uscale)
-        # return u, v, torch.zeros_like(w)
         print("scale now, U {}, V{}".format(torch.sqrt(torch.mean((u * u).view(-1))), torch.sqrt(torch.mean((v * v).view(-1)))))
         print("dist1 {}".format(torch.norm(v.matmul(u) - w)))
         t = (5 ** (0.5) - 1) / (2.)
@@ -163,20 +151,16 @@ class DeepOriginalModel(nn.Module):
                 S_sqrt = torch.sqrt(S)
                 weight_B = U * S_sqrt
                 weight_A = S_sqrt.view(-1, 1) * V.t()
-                # weights_list.append((weight_A, weight_B))
             else:
                 S_sqrt = torch.sqrt(S[:ranks[i]])
                 weight_B = U[:, :ranks[i]] * S_sqrt
                 weight_A = S_sqrt.view(-1, 1) * V.t()[:ranks[i], :]
             
-                # weights_list.append((weightA, weightB))
             weightA, weightB, weightC = self.scale_tosame(weight_A, weight_B, weight)
-            # restore_w = weight_B.matmul(weight_A) #+ weightC
             restore_w = weightB.matmul(weightA) + weightC
 
             print("dist {}".format(torch.norm(restore_w - weight)))
             weights_list.append((weightA, weightB, weightC))
-            # print("A {}, B {}, C {}".format(weightA, weightB, weightC))
             i += 1
         return weights_list
 
@@ -191,7 +175,6 @@ class DeepOriginalModel(nn.Module):
             else:
                 weight = m.weight.data
             
-            # t = (math.sqrt(5) - 1)/2
             t = 0.0
             if torch.cuda.is_available():
                 C = t * weight * (torch.cuda.FloatTensor(weight.size()).uniform_() > 0.5).type(torch.FloatTensor)
@@ -209,19 +192,16 @@ class DeepOriginalModel(nn.Module):
                 weight_B = U[:, :ranks[i]] * S_sqrt
                 weight_A = S_sqrt.view(-1, 1) * V.t()[:ranks[i], :]
             
-                # weights_list.append((weightA, weightB))
             u, v = weight_A, weight_B
             uscale = torch.sqrt(torch.mean((u * u).view(-1)))
             vscale = torch.sqrt(torch.mean((v * v).view(-1)))
             u = u / uscale * torch.sqrt(uscale * vscale)
             v = v / vscale * torch.sqrt(vscale * uscale)
             weightA, weightB, weightC = u, v, C
-            # restore_w = weight_B.matmul(weight_A) #+ weightC
             restore_w = weightB.matmul(weightA) + weightC
 
             print("dist {}".format(torch.norm(restore_w - weight)))
             weights_list.append((weightA, weightB, weightC))
-            # print("A {}, B {}, C {}".format(weightA, weightB, weightC))
             i += 1
         return weights_list
 
@@ -237,7 +217,6 @@ class DeepOriginalModel(nn.Module):
             else:
                 weight = m.weight.data
             
-            # t = (math.sqrt(5) - 1)/2
             t = 0.0
             if torch.cuda.is_available():
                 C = t * weight * (torch.cuda.FloatTensor(weight.size()).uniform_() > 0.5).type(torch.FloatTensor)
@@ -268,11 +247,9 @@ class DeepOriginalModel(nn.Module):
                 v = v - eye_term
                 restore_w = (v+eye_term).matmul(u) + C
             weightA, weightB, weightC = u, v, C
-            # restore_w = weight_B.matmul(weight_A) #+ weightC
 
             print("dist {}".format(torch.norm(restore_w - weight)))
             weights_list.append((weightA, weightB, weightC))
-            # print("A {}, B {}, C {}".format(weightA, weightB, weightC))
             i += 1
         return weights_list
 
@@ -298,12 +275,10 @@ class DeepOriginalModel(nn.Module):
                 weight_B = U[:, :ranks[i]] * S_sqrt
                 weight_A = S_sqrt.view(-1, 1) * V.t()[:ranks[i], :]
             
-            # restore_w = weight_B.matmul(weight_A) #+ weightC
             restore_w = weight_B.matmul(weight_A)
 
             print("dist {}".format(torch.norm(restore_w - weight)))
             weights_list.append((weight_A, weight_B))
-            # print("A {}, B {}, C {}".format(weightA, weightB, weightC))
             i += 1
         return weights_list
 
@@ -351,243 +326,19 @@ class DeepOriginalModel(nn.Module):
             weight_B = U[:, :rank] * S_sqrt
             weight_A = S_sqrt.view(-1, 1) * V.t()[:rank, :]
             print("{} {} {}".format(S_sqrt.shape, weight_B.shape, weight_A.shape))
-            # restore_w = weight_B.matmul(weight_A) #+ weightC
             restore_w = weight_B.matmul(weight_A)
 
             print("dist {}".format(torch.norm(restore_w - orig_weights[i])))
             weights_list.append((name_list[i], weight_A, weight_B))
-            # print("A {}, B {}, C {}".format(weightA, weightB, weightC))
             offset += numel
         return weights_list, ranks
 
-
-    def lu_weights(self):
-        weights_list = []
-        for m in self.param_modules():
-            if isinstance(m, nn.Conv2d) and m.groups != 1:
-                continue
-            if isinstance(m, nn.Conv2d):
-                mdata = m.weight.view(m.out_channels, m.in_channels * m.kernel_size[0] * m.kernel_size[1]).data.cpu().numpy()
-            else:
-                mdata = m.weight.data.cpu().numpy()
-
-            L, U = sl.lu(mdata, permute_l=True)
-            L = torch.Tensor(L)
-            U = torch.Tensor(U)
-            W = torch.Tensor(mdata)
-            weightA, weightB, weightC = self.scale_tosame(U, L, W)
-            weights_list.append((weightA, weightB, weightC))
-
-        return weights_list
-
-    def lu_weights_v2(self):
-        weights_list = []
-        i = 0
-
-        for m in self.param_modules():
-            if isinstance(m, nn.Conv2d) and m.groups != 1:
-                continue
-            if isinstance(m, nn.Conv2d):
-                weight = m.weight.view(m.out_channels, m.in_channels * m.kernel_size[0] * m.kernel_size[1]).data
-            else:
-                weight = m.weight.data
-            
-            # t = (math.sqrt(5) - 1)/2
-            t = 1e-3
-            if torch.cuda.is_available():
-                C = t * weight * (torch.cuda.FloatTensor(weight.size()).uniform_() > 0.9).type(torch.FloatTensor)
-            else:
-                C = t * weight * (torch.FloatTensor(weight.size()).uniform_() > 0.9).type(torch.FloatTensor)
-
-            mdata = (weight - C).cpu().numpy()
-            
-            L, U = sl.lu(mdata, permute_l=True)
-            
-            weight_A = torch.Tensor(U)
-            weight_B = torch.Tensor(L)
-            u, v = weight_A, weight_B
-            uscale = torch.sqrt(torch.mean((u * u).view(-1)))
-            vscale = torch.sqrt(torch.mean((v * v).view(-1)))
-            u = u / uscale * torch.sqrt(uscale * vscale)
-            v = v / vscale * torch.sqrt(vscale * uscale)
-            print("scale u {}, v {}".format(torch.sqrt(torch.mean((u * u).view(-1))), torch.sqrt(torch.mean((v * v).view(-1)))))
-            weightA, weightB, weightC = u, v, C
-            print("size A {}, B {}, C {}".format(weightA.shape, weightB.shape, weightC.shape))
-            restore_w = weightB.matmul(weightA) + weightC
-
-            print("dist {}".format(torch.norm(restore_w - weight)))
-            weights_list.append((weightA, weightB, weightC))
-            # print("A {}, B {}, C {}".format(weightA, weightB, weightC))
-            i += 1
-        return weights_list
-
-    def lu_weights_v3(self, ranks):
-        weights_list = []
-        i = 0
-
-        for m in self.param_modules():
-            if isinstance(m, nn.Conv2d) and m.groups != 1:
-                continue
-            if isinstance(m, nn.Conv2d):
-                weight = m.weight.view(m.out_channels, m.in_channels * m.kernel_size[0] * m.kernel_size[1]).data
-            else:
-                weight = m.weight.data
-            
-            # t = (math.sqrt(5) - 1)/2
-            t = 0.0
-            if torch.cuda.is_available():
-                C = t * weight * (torch.cuda.FloatTensor(weight.size()).uniform_() > 0.9).type(torch.FloatTensor)
-            else:
-                C = t * weight * (torch.FloatTensor(weight.size()).uniform_() > 0.9).type(torch.FloatTensor)
-
-            mdata = (weight - C).cpu().numpy()
-            
-            L, U = sl.lu(mdata, permute_l=True)
-            
-            weight_A = torch.Tensor(U)
-            weight_B = torch.Tensor(L)
-            u, v = weight_A, weight_B
-            uscale = torch.sqrt(torch.mean((u * u).view(-1)))
-            vscale = torch.sqrt(torch.mean((v * v).view(-1)))
-            u = u / uscale * torch.sqrt(uscale * vscale)
-            v = v / vscale * torch.sqrt(vscale * uscale)
-            print("scale u {}, v {}".format(torch.sqrt(torch.mean((u * u).view(-1))), torch.sqrt(torch.mean((v * v).view(-1)))))
-            eye_term = torch.eye(ranks[i])
-            if (isinstance(m, nn.Conv2d) and ranks[i] == m.in_channels * m.kernel_size[0] * m.kernel_size[1]) or (isinstance(m, nn.Linear) and ranks[i] == m.in_features):
-                u = u - eye_term
-                restore_w = v.matmul(u + eye_term) + C
-            else:
-                v = v - eye_term
-                restore_w = (v+eye_term).matmul(u) + C
-            weightA, weightB, weightC = u, v, C
-            print("size A {}, B {}, C {}".format(weightA.shape, weightB.shape, weightC.shape))
-            restore_w = weightB.matmul(weightA) + weightC
-
-            print("dist {}".format(torch.norm(restore_w - weight)))
-            weights_list.append((weightA, weightB, weightC))
-            # print("A {}, B {}, C {}".format(weightA, weightB, weightC))
-            i += 1
-        return weights_list
-    
     def update_weight_bit(self, weight_bits):
         offset = 0
         for module in self.modules():
             if isinstance(module, Linear_QuantForward) or isinstance(module, Conv2d_QuantForward):
                 module.bit = weight_bits[offset]
                 offset += 1
-
-class QuantForward(InplaceFunction):
-    @classmethod
-    def forward(cls, ctx, input, bit, inplace=False):
-        ctx.inplace = inplace
-        ctx.bit = bit
-        if ctx.inplace:
-            ctx.mark_dirty(input)
-            output = input
-        else:
-            output = input.clone()
-
-        K = int(2 ** bit)
-        if len(torch.nonzero(output)) <= K - 1:
-            return output
-        with torch.no_grad():
-            choice_cluster, centers = lloyd_nnz_fixed_0_center(output.view(-1).unsqueeze(-1), output.view(-1).unsqueeze(-1), K)
-            output.data.copy_(centers[choice_cluster.type(torch.LongTensor)].view(output.shape).data)
-
-        return output
-    
-    @staticmethod
-    def backward(ctx, grad_output):
-        grad_input = grad_output
-        return grad_input, None, None
-
-def quantize(x, num_bits=None, inplace=False):
-    return QuantForward().apply(x, num_bits, inplace)
-
-
-class Linear_QuantForward(nn.Module):
-    def __init__(self, in_features, out_features, init_bit=8, bias=True):
-        super(Linear_QuantForward, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-
-        self.bit = init_bit
-
-        self.weight = Parameter(torch.Tensor(out_features, in_features))
-
-        self.weight_q = Parameter(torch.Tensor(out_features, in_features))
-        if bias:
-            self.bias = Parameter(torch.Tensor(out_features))
-        else:
-            self.register_parameter('bias', None)
-        self.reset_parameters()
-    
-    def reset_parameters(self):
-        stdv = 1./ math.sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
-        if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
-
-    def forward(self, input):
-        qweight = quantize(self.weight, num_bits=self.bit)
-
-        self.weight_q.data.copy_(qweight.data)
-
-        return F.linear(input, qweight, bias=self.bias)
-
-class Conv2d_QuantForward(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size,
-                 stride=1, padding=0, dilation=1, groups=1, bias=True, init_bit=8):
-        super(Conv2d_QuantForward, self).__init__()
-
-        kernel_size = _pair(kernel_size)
-        stride = _pair(stride)
-        padding = _pair(padding)
-        dilation = _pair(dilation)
-        assert groups == 1, 'does not support grouped convolution yet'
-        self.bit = init_bit
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-        self.dilation = dilation
-        self.groups = groups
-        self.weight = Parameter(torch.Tensor(out_channels, in_channels, *kernel_size))
-        self.weight_size = [out_channels, in_channels, *kernel_size]
-        self.weight_q = Parameter(torch.Tensor(*self.weight_size))
-        if bias:
-            self.bias = Parameter(torch.Tensor(out_channels))
-        else:
-            self.register_parameter('bias', None)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        n = self.in_channels
-        for k in self.kernel_size:
-            n *= k
-        stdv = 1. / math.sqrt(n)
-        self.weight.data.uniform_(-stdv, stdv)
-        if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
-
-    def extra_repr(self):
-        s = ('{in_channels}, {out_channels}, kernel_size={kernel_size}'
-             ', stride={stride}, rank={rank}')
-        if self.padding != (0,) * len(self.padding):
-            s += ', padding={padding}'
-        if self.dilation != (1,) * len(self.dilation):
-            s += ', dilation={dilation}'
-        if self.groups != 1:
-            s += ', groups={groups}'
-        if self.bias is None:
-            s += ', bias=False'
-        return s.format(**self.__dict__)
-
-    def forward(self, input):
-        weight = quantize(self.weight, num_bits=self.bit)
-        self.weight_q.data.copy_(weight.data)
-        return F.conv2d(input, weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
 
 #######################################################################
 #########################-low_rank-######################
@@ -1160,138 +911,3 @@ class DeepSP_v2Model(nn.Module):
             loss += ((m.weightC + extra_us[n].weightC.data - extra_zs[n].weightC.data)**2).sum()
 
         return loss
-            
-
-#######################################################################
-#########################-AB_alpha-######################
-#######################################################################
-
-class LinearAB_alpha(nn.Module):
-    def __init__(self, in_features, out_features, rank, bias=True):
-        super(LinearAB_alpha, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        # print("rank {}, in_features {}, out_features {}".format(rank, in_features, out_features))
-        assert rank <= min(in_features, out_features)
-        self.rank = rank
-        self.weightA = Parameter(torch.zeros(rank, in_features))
-        self.weightB = Parameter(torch.zeros(out_features, rank))
-        self.weightC = Parameter(torch.zeros(out_features, in_features))
-        # if torch.cuda.is_available():
-        #     self.eye = torch.eye(rank).cuda()
-        # else:
-        #     self.eye = torch.eye(rank)
-        self.eye = torch.eye(rank)
-        self.register_buffer('eye_const', self.eye)
-        if bias:
-            self.bias = Parameter(torch.Tensor(out_features))
-        else:
-            self.register_parameter('bias', None)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        stdv = 1. / math.sqrt(self.weightA.size(1))
-        if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
-
-    def forward(self, input):
-        if self.rank == self.in_features:
-            weight = self.weightB.matmul(self.weightA + self.eye_const) + self.weightC
-        else:
-            weight = (self.weightB + self.eye_const).matmul(self.weightA) + self.weightC
-        return F.linear(input, weight, self.bias)
-
-    def extra_repr(self):
-        return 'in_features={}, out_features={}, bias={}'.format(
-            self.in_features, self.out_features, self.bias is not None
-        )
-
-
-class Conv2dAB_alpha(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, rank, stride=1, padding=0, dilation=1, groups=1, bias=True):
-        super(Conv2dAB_alpha, self).__init__()
-        kernel_size = _pair(kernel_size)
-        stride = _pair(stride)
-        padding = _pair(padding)
-        dilation = _pair(dilation)
-        assert groups == 1, 'does not support grouped convolution yet'
-        assert rank <= min(in_channels * kernel_size[0] * kernel_size[1], out_channels)
-        self.rank = rank
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-        self.dilation = dilation
-        self.groups = groups
-        self.weightA = Parameter(torch.zeros(rank, in_channels, *kernel_size))
-        self.weightB = Parameter(torch.zeros(out_channels, rank, 1, 1))
-        self.original_shape = (out_channels, in_channels, *kernel_size)
-        self.weightC = Parameter(torch.zeros(1))
-        # if torch.cuda.is_available():
-        #     self.eye = torch.eye(rank).cuda()
-        # else:
-        #     self.eye = torch.eye(rank)
-        self.eye = torch.eye(rank)
-        self.register_buffer('eye_const', self.eye)
-        if bias:
-            self.bias = Parameter(torch.Tensor(out_channels))
-        else:
-            self.register_parameter('bias', None)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        n = self.in_channels
-        for k in self.kernel_size:
-            n *= k
-        stdv = 1. / math.sqrt(n)
-        if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
-
-    def extra_repr(self):
-        s = ('{in_channels}, {out_channels}, kernel_size={kernel_size}'
-             ', stride={stride}, rank={rank}')
-        if self.padding != (0,) * len(self.padding):
-            s += ', padding={padding}'
-        if self.dilation != (1,) * len(self.dilation):
-            s += ', dilation={dilation}'
-        if self.groups != 1:
-            s += ', groups={groups}'
-        if self.bias is None:
-            s += ', bias=False'
-        return s.format(**self.__dict__)
-
-    def forward(self, input):
-        weightA = self.weightA.view(self.rank, -1)
-        weightB = self.weightB.view(self.out_channels, -1)
-        if self.rank == self.in_channels * self.kernel_size[0] * self.kernel_size[1]:
-            weight = weightB.matmul(weightA + self.eye_const).view(self.original_shape) + self.weightC
-        else:
-            weight = (weightB + self.eye_const).matmul(weightA).view(self.original_shape) + self.weightC
-        return F.conv2d(input, weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
-        
-
-class DeepAB_alphaModel(nn.Module):
-    def __init__(self):
-        super(DeepAB_alphaModel, self).__init__()
-
-    def set_weights(self, weights_list):
-        i = 0
-
-        for m in self.factorized_modules():
-            weightA, weightB, weightC = weights_list[i]
-            # print(weights_list[i])
-            if not(weightA is None):
-                print("setA")
-                m.weightA.data.view(-1).copy_(weightA.view(-1))
-
-            if not(weightB is None):
-                print("setB")
-                m.weightB.data.view(-1).copy_(weightB.view(-1))
-            # m.weightC.data.view(-1).copy_(weightC.view(-1))
-            i += 1
-    
-    def factorized_modules(self):
-        for module in self.modules():
-            if isinstance(module, Conv2dAB_alpha) or isinstance(module, LinearAB_alpha):
-                yield module
