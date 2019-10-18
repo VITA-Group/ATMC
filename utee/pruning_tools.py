@@ -48,12 +48,8 @@ def prune_admm_ms(weight_list, weight_bits, model_size):
     param_flats = [p.data.view(-1) for p in weight_list]
     param_flats_all = torch.cat(param_flats, dim=0)
     knapsack_weight_all = torch.cat([torch.ones_like(p) * weight_bits[i] for i, p in enumerate(param_flats)], dim=0)
-    # score_all = torch.cat([p ** 2 for p in param_flats], dim=0) * knapsack_weight_all
     score_all = torch.cat([p.abs() for p in param_flats], dim=0) * knapsack_weight_all
-    # print(len(weight_list))
-    # print(len(weight_bits))
-    # print(len(param_flats))
-    # model_size *= 0.99
+
     _, sorted_idx = torch.sort(score_all, descending=True)
     cumsum = torch.cumsum(knapsack_weight_all[sorted_idx], dim=0)
     res_nnz = torch.nonzero(cumsum <= model_size).max() 
@@ -79,9 +75,6 @@ def k_means1D(X, Xnnz, n_clusters, niter=100):
         idx0 = idx[indices]
         val_dict = torch.cat([X[idx0].clone().view(-1), torch.zeros(1).cuda()], dim=0)
 
-    # indices = torch.randperm(n_clusters - 1)[]
-    # indices = np.random.choice(X.numel(), n_clusters)
-    # val_dict = X[indices].clone().view(-1)
     tol = 1e-3
     pre_dist = None
     one_hot = torch.zeros(X.shape[0], n_clusters).cuda()
@@ -89,20 +82,13 @@ def k_means1D(X, Xnnz, n_clusters, niter=100):
         # assign codes
         km_dist, km_code = torch.min((X.view(-1, 1) - val_dict) ** 2, dim=1)
         cur_dist = km_dist.sum().item()
-        # print(cur_dist)
         if pre_dist is not None and cur_dist > 0 and abs(pre_dist - cur_dist) / cur_dist < tol:
             return val_dict
-        # print(t, cur_dist)
         pre_dist = cur_dist
-        # update dictonary
-        # for c in range(n_clusters):
-        #     val_in_c = X[(km_code == c)]
-        #     if val_in_c.numel() > 0:
-        #         val_dict[c] = val_in_c.mean()
+
         one_hot = one_hot.zero_()
         one_hot.scatter_(1, km_code.unsqueeze(1), 1)
-        # print(one_hot.shape)
-        # print(X.shape)
+
         Xp = (X.unsqueeze(1) * one_hot).sum(dim=0)
         Xsum = one_hot.sum(dim=0)
         idx = torch.nonzero(Xsum)
@@ -175,7 +161,6 @@ def mckp_greedy(profit, weight, group_size, budget, sorted_weights=True):
         if reduced_group_size[gi] <= 2:
             continue
         stack = [(go, None)]
-        # print('idx1={}'.format(idx[go:go+gs]))
         for i in range(1, gs):
             cur_idx = go + i
             if bool(idx[cur_idx]):
@@ -187,9 +172,7 @@ def mckp_greedy(profit, weight, group_size, budget, sorted_weights=True):
                     else:
                         del_idx, del_score = stack.pop()
                         idx[del_idx] = 0
-                        # print('profit={}, weight={}'.format(profit[del_idx], weight[del_idx]))
                         reduced_group_size[gi] -= 1
-        # print('idx2={}'.format(idx[go:go+gs]))
     # greedy algorithm
     R_profit = profit[idx]
     R_d_profit = R_profit.clone()
@@ -197,10 +180,6 @@ def mckp_greedy(profit, weight, group_size, budget, sorted_weights=True):
     R_weight = weight[idx]
     R_d_weight = R_weight.clone()
     R_d_weight[1:] -= R_weight[:-1]
-
-    # print('profit={}'.format(profit))
-    # print('weight={}'.format(weight))
-    # print('gs={}'.format(reduced_group_size))
 
     R_score = R_d_profit / R_d_weight
     sorted_idx = sorted(range(len(R_score)), key=R_score.__getitem__, reverse=True)
@@ -303,13 +282,11 @@ def quantize_bit_compute(weight_list, num_nnz, weight_nnz, model_size, include_d
     for i, p in enumerate(weight_list):
         dist4nbits = []
         val_dicts = {}
-        # pnorm = p.data.norm().item() ** 2
         for nbits in nbits_dict:
             nbits = int(nbits)
             val_dict = get_optim_val_dict(p.data, weight_nnz[i].data, nbits, niter=100)
             val_dicts[nbits] = val_dict
             dist = km_quantize_tensor(p.data, nbits, val_dict=val_dict)[1].sum().item()
-            # dist4nbits.append(dist / pnorm)
             dist4nbits.append(dist)
 
         mckp_p.append(-torch.tensor(dist4nbits, dtype=torch.float))
@@ -330,7 +307,6 @@ def quantize_bit_compute(weight_list, num_nnz, weight_nnz, model_size, include_d
         nbits = int(nbits_dict[x[offset:offset + mckp_gs[i]]])
         val_dict = val_dicts_list[i][nbits]
         offered_cluster.append(val_dict)
-        # weight_list[i].data.copy_(km_quantize_tensor(weight_list[i].data, nbits, val_dict=val_dict)[0])
         offset += mckp_gs[i]
         weight_bits.append(nbits)
 
@@ -396,14 +372,11 @@ def layers_n(model, normalized=True, param_name=['weight']):
     for name, W in model.named_parameters():
         if name.strip().split(".")[-1] in param_name and name.strip().split(".")[-2][:2] != "bn" and W.dim() > 1:
             layer_name = name
-            # W_nz = torch.nonzero(W.data)
             W_n = W.data.view(-1)
-            # print("{} {}".format(layer_name, W.data.shape))
             if W_n.dim() > 0:
                 if not normalized:
                     res[layer_name] = W_n.shape[0]
                 else:
-                    # print("{} layer nnz:{}".format(name, torch.nonzero(W.data)))
                     res[layer_name] = float(W_n.shape[0]) / torch.numel(W)
                 count_res[layer_name] = W_n.shape[0]
             else:
@@ -435,7 +408,6 @@ def layers_nnz_LR(model, normalized=False, param_names=["weight"]):
             rank = model_size[layer_name]["ranks"]
             W_nz = torch.nonzero(W.view(rank, -1).sum(1)).squeeze()
             if W_nz.dim() == 0:
-                # print(W_nz)
                 res[layer_name]["weightA"] = {"ori-size": W.view(rank, -1).data.shape, "nz_idx": [W_nz.data], "num": 1}
                 count_res[layer_name]["weightA"] = 0
                 continue
@@ -447,7 +419,6 @@ def layers_nnz_LR(model, normalized=False, param_names=["weight"]):
         if param_name == "weightB":
             model_size[layer_name]["outputs"] = W.shape[0]
             outputs = model_size[layer_name]["outputs"]
-            # print("Wshape {}".format(W.shape))
             W_nz = torch.nonzero(W.view(outputs, -1).sum(0)).squeeze()
             if W_nz.dim() == 0:
                 res[layer_name]["weightB"] = {"ori-size": W.view(outputs, -1).data.shape, "nz_idx": [W_nz.data], "num": 1}
@@ -479,7 +450,6 @@ def l0proj(model, k, normalized=True, param_name=['weightA', "weightB", "weightC
     W_shapes = []
     res = []
     for name, W in model.named_parameters():
-        # if name.endswith(param_name):
         if name.strip().split(".")[-1] in param_name:
             if W.dim() == 1:
                 W_shapes.append((name, None))
@@ -510,7 +480,6 @@ def l0proj_adam(optimizer, model, k, normalized=True, param_name=['weightA', "we
     res = []
     score = []
     for name, W in model.named_parameters():
-        # if name.endswith(param_name):
         if name.strip().split(".")[-1] in param_name:
             if W.dim() == 1:
                 W_shapes.append((name, None))
@@ -614,7 +583,6 @@ class SparseConv2d(myConv2d):
         self.input_mask.data.fill_(1.0)
 
     def forward(self, input):
-        # print("###{}, {}".format(input.size(), self.input_mask.size()))
         return super(SparseConv2d, self).forward(input * self.input_mask)
 
 
