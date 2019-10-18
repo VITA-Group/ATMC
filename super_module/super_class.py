@@ -370,10 +370,8 @@ class Linearlr(nn.Module):
         self.weightB.data.uniform_(-stdv, stdv)
 
     def forward(self, input):
-        # print("B {}, A{}, C{}".format(self.weightB.size(), self.weightA.size(), self.weightC.size()))
         weight = self.weightB.matmul(self.weightA)
         return F.linear(input, weight, self.bias)
-        # return F.linear(input.matmul(self.weightA.t()), self.weightB, self.bias)
 
     def extra_repr(self):
         return 'in_features={}, out_features={}, bias={}'.format(
@@ -436,14 +434,9 @@ class Conv2dlr(nn.Module):
         return s.format(**self.__dict__)
 
     def forward(self, input):
-        # print("B {}, A{}, C{}".format(self.weightB.size(), self.weightA.size(), self.weightC.size()))
-        # print(self.extra_repr())
-        # print(input[0][0][0])
         weightA = self.weightA.view(self.rank, -1)
         weightB = self.weightB.view(self.out_channels, -1)
         weight = weightB.matmul(weightA).view(self.weight_size)
-        # exit(0)
-        # print("B {}, A {}, C {}, W {}".format(weightB.data.cpu()[0][0][0], weightA.data.cpu()[0][0][0], self.weightC.data.cpu()[0][0][0], weight.data.cpu()[0][0][0]))
         return F.conv2d(input, weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
 
 class CaffeLeNetLR(nn.Module):
@@ -451,12 +444,10 @@ class CaffeLeNetLR(nn.Module):
         super(CaffeLeNetLR, self).__init__()
         feature_layers = []
         # conv
-        # feature_layers.append(conv_class(h, w, 1, 20, kernel_size=5))
         feature_layers.append(Conv2dlr(in_channels=1, out_channels=20, kernel_size=5, rank=ranks[0]))
         # pooling
         feature_layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
         # conv
-        # feature_layers.append(conv_class(h, w, 20, 50, kernel_size=5))
         feature_layers.append(Conv2dlr(in_channels=20, out_channels=50, kernel_size=5, rank=ranks[1]))
         # pooling
         feature_layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
@@ -511,8 +502,6 @@ class DeepLRModel(nn.Module):
         for name, m in self.factorized_named_modules():
             name_out, weightA, weightB = weights_list[i]
             print("{} {} {} {} {}".format(name_out, weightA.shape, weightB.shape, m.weightA.shape, m.weightB.shape))
-            # m.weightA.data.view(-1).copy_(weightA.view(-1))
-            # m.weightB.data.view(-1).copy_(weightB.view(-1))
             print("A nan? {}".format((weightA.data != weightA.data).sum().item()))
             print("A nan? {}".format(torch.isnan(weightA).sum().item()))
             print("B nan? {}".format((weightB.data != weightB.data).sum().item()))
@@ -540,12 +529,9 @@ class DeepLRModel(nn.Module):
         src_dict = dict(model_src.named_parameters())
         src_buffer_dict = dict(model_src.named_buffers())
         for n, w in self.named_parameters():
-            # print(src_dict.keys())
             if n.split(".")[-1] not in weight_name or n.split(".")[-2][:2] == "bn":
-                # print(n.split(".")[-2][:2])
                 w.data.copy_(src_dict[n].data)
-            # print(n)
-            # print(n.strip())
+
         for n, buffer in self.named_buffers():
             buffer.data.copy_(src_buffer_dict[n].data)
 
@@ -568,13 +554,7 @@ class DeepLRModel(nn.Module):
         for n, m in self.factorized_named_modules():
             m.weightA.data.copy_(m.weightA.data + rho * (extra_ws[n].weightA.data - extra_zs[n].weightA.data))
             m.weightB.data.copy_(m.weightB.data + rho * (extra_ws[n].weightB.data - extra_zs[n].weightB.data))
-        #     b += (m.weight.data ** 2).sum().item()
-        #     c += ((extra_ws[n].weight.data - extra_zs[n].weight.data)**2).sum().item()
-        # print(b)
-        # print(c)
-            # if flag:
-            #     print((m.weight.data ** 2).sum().item())
-            #     flag = False
+
 
     def admm_regularizer(self, extra_u, extra_z):
         extra_us = dict(extra_u.factorized_named_modules())
@@ -624,10 +604,8 @@ class Linearsp(nn.Module):
         self.weightC.data.uniform_(-stdv, stdv)
 
     def forward(self, input):
-        # print("B {}, A{}, C{}".format(self.weightB.size(), self.weightA.size(), self.weightC.size()))
         weight = self.weightB.matmul(self.weightA) + self.weightC
         return F.linear(input, weight, self.bias)
-        # return F.linear(input.matmul(self.weightA.t()), self.weightB, self.bias)
 
     def extra_repr(self):
         return 'in_features={}, out_features={}, bias={}'.format(
@@ -735,10 +713,7 @@ class Linearsp_v2(nn.Module):
         self.weightA = Parameter(torch.zeros(rank, in_features))
         self.weightB = Parameter(torch.zeros(out_features, rank))
         self.weightC = Parameter(torch.zeros(out_features, in_features))
-        # if torch.cuda.is_available():
-        #     self.eye = torch.eye(rank).cuda()
-        # else:
-        #     self.eye = torch.eye(rank)
+
         self.eye = torch.eye(rank)
         self.register_buffer('eye_const', self.eye)
         if bias:
@@ -785,10 +760,7 @@ class Conv2dsp_v2(nn.Module):
         self.weightA = Parameter(torch.zeros(rank, in_channels, *kernel_size))
         self.weightB = Parameter(torch.zeros(out_channels, rank, 1, 1))
         self.weightC = Parameter(torch.zeros(out_channels, in_channels, *kernel_size))
-        # if torch.cuda.is_available():
-        #     self.eye = torch.eye(rank).cuda()
-        # else:
-        #     self.eye = torch.eye(rank)
+
         self.eye = torch.eye(rank)
         self.register_buffer('eye_const', self.eye)
         if bias:
@@ -822,7 +794,6 @@ class Conv2dsp_v2(nn.Module):
         weightA = self.weightA.view(self.rank, -1)
         weightB = self.weightB.view(self.out_channels, -1)
         if self.rank == self.in_channels * self.kernel_size[0] * self.kernel_size[1]:
-            # print("{} {} {} {}".format(weightB.type(), weightA.type(), self.eye.type(), self.weightC.type()))
             weight = weightB.matmul(weightA + self.eye_const).view(self.weightC.size()) + self.weightC
         else:
             weight = (weightB + self.eye_const).matmul(weightA).view(self.weightC.size()) + self.weightC
@@ -838,7 +809,6 @@ class DeepSP_v2Model(nn.Module):
 
         for m in self.factorized_modules():
             weightA, weightB, weightC = weights_list[i]
-            # print(weights_list[i])
             if not(weightA is None):
                 print("setA")
                 m.weightA.data.view(-1).copy_(weightA.view(-1))
@@ -846,7 +816,6 @@ class DeepSP_v2Model(nn.Module):
             if not(weightB is None):
                 print("setB")
                 m.weightB.data.view(-1).copy_(weightB.view(-1))
-            # m.weightC.data.view(-1).copy_(weightC.view(-1))
             i += 1
     
     def factorized_modules(self):
@@ -863,12 +832,8 @@ class DeepSP_v2Model(nn.Module):
         src_dict = dict(model_src.named_parameters())
         src_buffer_dict = dict(model_src.named_buffers())
         for n, w in self.named_parameters():
-            # print(src_dict.keys())
             if n.split(".")[-1] not in weight_name or n.split(".")[-2][:2] == "bn":
-                # print(n.split(".")[-2][:2])
                 w.data.copy_(src_dict[n].data)
-            # print(n)
-            # print(n.strip())
         for n, buffer in self.named_buffers():
             buffer.data.copy_(src_buffer_dict[n].data)
 
