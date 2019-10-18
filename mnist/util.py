@@ -88,7 +88,6 @@ def edgecut(data, min, max, in_place=True):
     res.data[idx] = max
 
     return res
-    # return tensor_clamp(data, min=min, max=max, in_place=in_place)
 
 
 _extra_args = {'alpha', 'steps', 'randinit', 'gamma', 'iscuda'}
@@ -110,14 +109,10 @@ def fgsm_gt(x, y, criterion, rho=None, model=None, **kwargs):
 
     for i in range(len(eps)):
         alpha = eps[i]
-        # print(alpha)
         x_adv[:,i,:,:].data.add_(alpha * torch.sign(grad0.data[:,i,:,:]))
         tmp = linfball_proj(center=x[:,i,:,:], radius=alpha, t=x_adv[:,i,:,:])
         x_adv[:,i,:,:].data.copy_(tmp.data)
         edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
-        # x_adv[:,i,:,:] = torch.clamp(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
-
-    # x_adv.data.add_(eps * torch.sign(grad0.data))
 
     return x_adv.data
 
@@ -131,18 +126,15 @@ def rfgsm_gt(x, y, criterion, rho=None, model=None, iscuda=False, **kwargs):
     eps_torch = torch.tensor(eps).view(1, len(eps), 1, 1)
     if iscuda:
         eps_torch = eps_torch.cuda()
-        # print("update eps to cuda")
     rgb = attack_range()
     # compute loss
     x_adv = x.clone()
     x_adv.requires_grad = True
 
     if randinit:
-        # pertub = torch.sign( torch.randn_like(x_adv) )
         x_adv.data.add( (2.0 * torch.rand_like(x_adv) - 1.0) * eps_torch )
         for i in range(len(eps)):
             alpha = eps[i]
-            # x_adv[:,i,:,:].data.add_(alpha * pertub[:,i,:,:])
             linfball_proj(center=x[:,i,:,:], radius=alpha, t=x_adv[:,i,:,:])
             edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
 
@@ -154,7 +146,6 @@ def rfgsm_gt(x, y, criterion, rho=None, model=None, iscuda=False, **kwargs):
         x_adv[:,i,:,:].data.add_(alpha * torch.sign(grad0.data[:,i,:,:]))
         linfball_proj(center=x[:,i,:,:], radius=eps[i], t=x_adv[:,i,:,:])
         edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
-        # x_adv[:,i,:,:] = torch.clamp(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
 
     return x_adv.data
         
@@ -168,18 +159,15 @@ def ifgsm_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=False, isc
     eps_torch = torch.tensor(eps).view(1, len(eps), 1, 1)
     if iscuda:
         eps_torch = eps_torch.cuda()
-        # print("update eps to cuda")
     rgb = attack_range()
     # compute loss
     x_adv = x.clone()
     x_adv.requires_grad = True
 
     if randinit:
-        # pertub = torch.sign( torch.randn_like(x_adv) )
         x_adv.data.add( (2.0 * torch.rand_like(x_adv) - 1.0) * eps_torch )
         for i in range(len(eps)):
             alpha = eps[i]
-            # x_adv[:,i,:,:].data.add_(alpha * pertub[:,i,:,:])
             linfball_proj(center=x[:,i,:,:], radius=alpha, t=x_adv[:,i,:,:])
             edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
 
@@ -190,31 +178,19 @@ def ifgsm_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=False, isc
             for i in range(len(eps)):
                 alpha = (eps[i] * 1.25) / steps
                 x_adv[:,i,:,:].data.add_(alpha * torch.sign(grad.data[:,i,:,:]))
-                # print(eps[i])
                 linfball_proj(center=x[:,i,:,:], radius=eps[i], t=x_adv[:,i,:,:])
-                # x_adv[:,i,:,:].data.copy_(tmp.data)
                 edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
 
-    # tmp = torch.max((x - x_adv).view(x.size(0), -1).abs(), dim=-1)[0]
-    # tmp = x_adv.max()
-    # print(x_adv.min(), x_adv.max())
-                
-                # x_adv[:,i,:,:].data.fill_(torch.clamp(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1]))
 
     return x_adv.data
 
 
 def pgd_gt_o(x, y, criterion, rho=None, model=None, steps=3, alpha=None, randinit=False,  iscuda=False, **kwargs):
-    # x, y, criterion, rho=None, model=None, steps=3, randinit=True, iscuda=False, **kwargs
     eps = rho
-    # print(eps)
     loss_fn = criterion
     if len(kwargs) > 0:
-        # print(kwargs.keys())
         assert set(kwargs.keys()).issubset(_extra_args)
     if eps is None:
-        # eps = 0.07972772183418274
-        # eps = 0.45474205
         eps = 0.062
     if alpha is None:
         alpha = (eps/255 * 1.25) / steps
@@ -227,7 +203,6 @@ def pgd_gt_o(x, y, criterion, rho=None, model=None, steps=3, alpha=None, randini
 
     x_adv = x.clone()
     if randinit:
-        # x_adv += torch.randn_like(x_adv).clamp_(min=-1.0, max=1.0) * eps
         x_adv += (2.0 * torch.rand_like(x_adv) - 1.0) * eps
     x_adv.requires_grad = True
 
@@ -249,18 +224,15 @@ def pgd_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=True, iscuda
     eps_torch = torch.tensor(eps).view(1, len(eps), 1, 1)
     if iscuda:
         eps_torch = eps_torch.cuda()
-        # print("update eps to cuda")
     rgb = attack_range()
     # compute loss
     x_adv = x.clone()
     x_adv.requires_grad = True
 
     if randinit:
-        # pertub = torch.sign( torch.randn_like(x_adv) )
         x_adv.data.add( (2.0 * torch.rand_like(x_adv) - 1.0) * eps_torch )
         for i in range(len(eps)):
             alpha = eps[i]
-            # x_adv[:,i,:,:].data.add_(alpha * pertub[:,i,:,:])
             linfball_proj(center=x[:,i,:,:], radius=alpha, t=x_adv[:,i,:,:])
             edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
 
@@ -273,7 +245,6 @@ def pgd_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=True, iscuda
                 x_adv[:,i,:,:].data.add_(alpha * torch.sign(grad.data[:,i,:,:]))
                 linfball_proj(center=x[:,i,:,:], radius=eps[i], t=x_adv[:,i,:,:])
                 edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
-                # x_adv[:,i,:,:].data.fill_(torch.clamp(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1]))
     return x_adv.data
 
 def grad_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=False, iscuda=False, **kwargs):
@@ -285,18 +256,15 @@ def grad_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=False, iscu
     eps_torch = torch.tensor(eps).view(1, len(eps), 1, 1)
     if iscuda:
         eps_torch = eps_torch.cuda()
-        # print("update eps to cuda")
     rgb = attack_range()
     # compute loss
     x_adv = x.clone()
     x_adv.requires_grad = True
 
     if randinit:
-        # pertub = torch.sign( torch.randn_like(x_adv) )
         x_adv.data.add( (2.0 * torch.rand_like(x_adv) - 1.0) * eps_torch )
         for i in range(len(eps)):
             alpha = eps[i]
-            # x_adv[:,i,:,:].data.add_(alpha * pertub[:,i,:,:])
             linfball_proj(center=x[:,i,:,:], radius=alpha, t=x_adv[:,i,:,:])
             edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
 
@@ -309,8 +277,7 @@ def grad_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=False, iscu
                 alpha = (eps[i] * 1.25) / steps / grad.data[:, i, :, :].abs().mean()
                 x_adv[:,i,:,:].data.add_(alpha * grad.data[:,i,:,:])
                 linfball_proj(center=x[:,i,:,:], radius=eps[i], t=x_adv[:,i,:,:])
-                # edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
-                # x_adv[:,i,:,:].data.fill_(torch.clamp(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1]))
+
     return x_adv.data
 
 
@@ -324,18 +291,14 @@ def wrm_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=False, gamma
     eps_torch = torch.tensor(eps).view(1, len(eps), 1, 1)
     if iscuda:
         eps_torch = eps_torch.cuda()
-        # print("update eps to cuda")
     rgb = attack_range()
-    # compute loss
     x_adv = x.clone()
     x_adv.requires_grad = True
 
     if randinit:
-        # pertub = torch.sign( torch.randn_like(x_adv) )
         x_adv.data.add( (2.0 * torch.rand_like(x_adv) - 1.0) * eps_torch )
         for i in range(len(eps)):
             alpha = eps[i]
-            # x_adv[:,i,:,:].data.add_(alpha * pertub[:,i,:,:])
             linfball_proj(center=x[:,i,:,:], radius=alpha, t=x_adv[:,i,:,:])
             edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
 
@@ -348,7 +311,6 @@ def wrm_gt(x, y, criterion, rho=None, model=None, steps=3, randinit=False, gamma
         scale = float(1./np.sqrt(t + 1))
         x_adv.data.add_(scale * grad.data)
         for i in range(len(eps)):
-            # linfball_proj(center=x_adv[:,i,:,:], radius=alpha, t=x_adv[:,i,:,:])
             edgecut(x_adv[:,i,:,:], min=rgb[i][0], max=rgb[i][1])
     
     return x_adv.data
@@ -369,7 +331,6 @@ def wrm(x, preds, loss_fn, y=None, gamma=None, model=None, steps=3, randinit=Fal
 
     x_adv = x.clone()
     if randinit:
-        # x_adv += torch.randn_like(x_adv).clamp_(min=-1.0, max=1.0) * eps
         x_adv += (2.0 * torch.rand_like(x_adv) - 1.0) * eps
 
     x_adv.requires_grad = True
@@ -379,13 +340,10 @@ def wrm(x, preds, loss_fn, y=None, gamma=None, model=None, steps=3, randinit=Fal
         loss_adv0 = gamma * loss_fn(model(x_adv), y, reduction="sum") - \
                     0.5 * torch.sum(torch.norm((x_adv - x.data).view(x_adv.size(0), -1), p=ord, dim=1) ** 2)
         
-        # loss_adv0.backward()
-        # grad0 = x_adv.grad
+
         grad0 = torch.autograd.grad(loss_adv0, x_adv, only_inputs=True)[0]
         scale = float(1./np.sqrt(t+1))
         x_adv.data.add_(scale * grad0.data)
-        # x_adv.grad.data.zero_()
-        # print("intermedia_grad0:", torch.norm(grad0))
 
     linfball_proj(x, eps, x_adv, in_place=True)
     return x_adv
@@ -395,8 +353,6 @@ def fgm(x, preds, loss_fn, y=None, eps=None, model=None, **kwargs):
     if len(kwargs) > 0:
         assert set(kwargs.keys()).issubset(_extra_args)
     if eps is None:
-        # eps = 0.07972772183418274
-        # eps = 0.45474205
         eps = 0.062
     if y is None:
         # Using model predictions as ground truth to avoid label leaking
@@ -408,7 +364,6 @@ def fgm(x, preds, loss_fn, y=None, eps=None, model=None, **kwargs):
     x_adv = x.clone()
     x_adv.requires_grad = True
 
-    # print("right")
     loss_adv0 = loss_fn(model(x_adv), y, reduction='sum')
     grad0 = torch.autograd.grad(loss_adv0, x_adv, only_inputs=True)[0]
     x_adv.data.add_(eps * torch.sign(grad0.data))
@@ -436,8 +391,6 @@ def ifgm(x, preds, loss_fn, y=None, eps=None, model=None, steps=3, alpha=None, r
     if len(kwargs) > 0:
         assert set(kwargs.keys()).issubset(_extra_args)
     if eps is None:
-        # eps = 0.07972772183418274
-        # eps = 0.45474205
         eps = 0.062
     if alpha is None:
         alpha = (eps * 1.25) / steps
@@ -450,7 +403,6 @@ def ifgm(x, preds, loss_fn, y=None, eps=None, model=None, steps=3, alpha=None, r
 
     x_adv = x.clone()
     if randinit:
-        # x_adv += torch.randn_like(x_adv).clamp_(min=-1.0, max=1.0) * eps
         x_adv += (2.0 * torch.rand_like(x_adv) - 1.0) * eps
     x_adv.requires_grad = True
 
@@ -473,8 +425,6 @@ def ifgm_attack(x, preds, loss_fn, y=None, eps=None, model=None, steps=3, alpha=
     if len(kwargs) > 0:
         assert set(kwargs.keys()).issubset(_extra_args)
     if eps is None:
-        # eps = 0.07972772183418274
-        # eps = 0.45474205
         eps = 0.062
     if alpha is None:
         alpha = (eps * 1.25) / steps
@@ -487,7 +437,6 @@ def ifgm_attack(x, preds, loss_fn, y=None, eps=None, model=None, steps=3, alpha=
 
     x_adv = x.clone()
     if randinit:
-        # x_adv += torch.randn_like(x_adv).clamp_(min=-1.0, max=1.0) * eps
         x_adv += torch.sign(2.0 * torch.rand_like(x_adv) - 1.0) * eps
     x_adv.requires_grad = True
 
@@ -510,7 +459,6 @@ def ifgm_attack(x, preds, loss_fn, y=None, eps=None, model=None, steps=3, alpha=
 def pgm(x, preds, loss_fn, y=None, eps=None, model=None, steps=16, **kwargs):
     raise DeprecationWarning
     if eps is None:
-        # eps = 0.33910248303413393
         eps = 3.27090588
     if y is None:
         # Using model predictions as ground truth to avoid label leaking

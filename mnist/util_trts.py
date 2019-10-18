@@ -311,31 +311,23 @@ def model_train_admm(models, epoch, data_loader, optimizer, \
             loss += rho/2. * model.module.admm_regularizer(modelu, modelz) 
         if quantize_tk is not None:
             loss += rho/2. * model.module.admm_regularizer(modelv, modely)
-        # loss = 1 + rho/2. * model.admm_regularizer(modelu, modelz)
         loss.backward()
         optimizer.step()
         loss_ave += loss.item()
         if batch_idx % admm_interval == 0:
             with torch.no_grad():
                 if prune_tk is not None:
-                    # prune_tk(model)
                     modelz.duplicate_plus(model, modelu)
                     prune_tk(modelz)
-                    # prune_tk(weight_list, weight_bits)
                     modelu.duplicate_update(model, modelz, rho)
                 
                 if quantize_tk is not None:
                     modely.duplicate_plus(model, modelv)
                     quantize_tk(modely)
-                    # quantize_tk(weight_list, weight_nnz)
                     modelv.duplicate_update(model, modely, rho)
 
         if batch_idx % log_interval == 0 and batch_idx > 0:
             acc = acc_call(output, indx_target, type=modelType) / len(data)
-            # print(data_adv.shape)
-            # pred = output.data.max(1)[1]
-            # correct = pred.cpu().eq(indx_target).sum().item()
-            # acc = correct * 1. / len(data)
             print('Train Epoch: {} [{}/{}] Loss: {:.5f} Acc: {:.4f} lr: {:.2e}'.format(
                 epoch, batch_idx * len(data), len(data_loader.dataset), loss_ave/nb_data, acc, optimizer.param_groups[0]['lr']
             ))
@@ -375,7 +367,6 @@ def model_train_admm_ms(models, epoch, data_loader, optimizer, \
                 loss += rho/2. * model.module.admm_regularizer(modelv.module, modely.module)
             else:
                 loss += rho/2. * model.admm_regularizer(modelv, modely)
-        # loss = 1 + rho/2. * model.admm_regularizer(modelu, modelz)
         loss.backward()
         optimizer.step()
         loss_ave += loss.item()
@@ -385,14 +376,12 @@ def model_train_admm_ms(models, epoch, data_loader, optimizer, \
                     # prune_tk(model)
                     if isinstance(model, nn.DataParallel):
                         modelz.module.duplicate_plus(model.module, modelu.module)
-                        # prune_tk(modelz)
                         ptime_begin = time.time()
                         prune_tk(list(param_list(modelz.module)), weight_bits)
                         prune_time += time.time() - ptime_begin
                         modelu.module.duplicate_update(model.module, modelz.module, rho)
                     else:
                         modelz.duplicate_plus(model, modelu)
-                        # prune_tk(modelz)
                         ptime_begin = time.time()
                         prune_tk(list(param_list(modelz)), weight_bits)
                         prune_time += time.time() - ptime_begin
@@ -402,14 +391,12 @@ def model_train_admm_ms(models, epoch, data_loader, optimizer, \
                 if quantize_tk is not None:
                     if isinstance(model, nn.DataParallel):
                         modely.module.duplicate_plus(model.module, modelv.module)
-                        # quantize_tk(modely)
                         qtime_begin = time.time()
                         weight_bits, clusters = quantize_tk(list(param_list(modely.module)), nnz, list(param_list(modelz.module)))
                         quant_time += time.time() - qtime_begin
                         modelv.module.duplicate_update(model.module, modely.module, rho)
                     else:
                         modely.duplicate_plus(model, modelv)
-                        # quantize_tk(modely)
                         qtime_begin = time.time()
                         weight_bits, clusters = quantize_tk(list(param_list(modely)), nnz, list(param_list(modelz)))
                         quant_time += time.time() - qtime_begin
@@ -429,9 +416,7 @@ def model_train_admm_ms(models, epoch, data_loader, optimizer, \
             print("\t prune_time {:.6f} quant_time {:.6f}".format(prune_time/nb_data, quant_time/nb_data))
             clusters_cpu = [sorted(cluster.cpu().numpy()) for cluster in clusters]
             for cluster in clusters_cpu:
-                # print("cluster [{}]".format("{:.3e}".format([k for k in cluster.cpu().numpy()])))
                 print("\t cluster [" + " ".join("{:.3e}".format(k) for k in sorted(cluster)) + "]")
-        # break
     
     return model, weight_bits, clusters_cpu
 
@@ -460,16 +445,10 @@ def model_uai_train(model_fea, model_pred, model_distortion, epoch, data_loader,
             data_adv = dfn_algo(x=data, y=target, criterion=criterion, rho=dfn_eps, model=model, steps=adv_iter, iscuda=iscuda)
 
         optim_pred.zero_grad()
-        # optim_distortion.zero_grad()
 
         sim = model_fea(data_adv)
-        # output, decLoss = model_pred(sim)
         d1, d2 = model_distortion(sim)
 
-        # loss = criterion(output, target)
-
-        # loss += decLoss
-        # tLoss = loss + d1 + d2
         dLoss = GAMMA * ( d1 + d2 )
 
         for iteration in range(5):
@@ -538,21 +517,18 @@ def model_test(model, epoch, data_loader, atk_algo, atk_eps, iscuda=False, adv_i
         with torch.no_grad():
             output = model(data)
         test_loss += criterion(output, target).data.item()
-        # pred = output.data.max(1)[1]
-        # correct += pred.cpu().eq(indx_target).sum()
+
         correct += acc_test_call(output, indx_target, type=modelType)
 
         data_adv = atk_algo(x=data, y=target, criterion=criterion, model=model, rho=atk_eps, steps=adv_iter, iscuda=iscuda).data
         with torch.no_grad():
             output_adv = model(data_adv)
         testLossAdv += criterion(output_adv, target).data.item()
-        # pred_adv = output_adv.data.max(1)[1]
-        # correctAdv += pred_adv.cpu().eq(indx_target).sum()
+
         correctAdv += acc_test_call(output_adv, indx_target, type=modelType)
 
         adv_l2dist += torch.norm((data - data_adv).view(data.size(0), -1), p=2, dim=-1).sum().item()
         tmp = torch.max((data - data_adv).view(data.size(0), -1).abs(), dim=-1)[0]
-        # print(tmp)
         adv_linfdist += tmp.sum().item()
 
     

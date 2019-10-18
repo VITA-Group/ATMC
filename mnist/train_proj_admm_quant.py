@@ -20,7 +20,6 @@ from quantize import quantize_kmeans_nnz as kmeans_nnz
 from quantize import quantize_kmeans_fixed_nnz as kmeans_fixed_nnz
 from quantize import quantize_kmeans_nnz_fixed_0_center as kmeans_nnz_fixed_0_center
 
-# np.set_printoptions(threshold=np.nan)
 
 import dataset
 from caffelenet.caffelenet_dense import CaffeLeNet as CLdense
@@ -47,7 +46,6 @@ parser.add_argument('--defend_algo', default=None, help='adversarial algo for de
 parser.add_argument('--defend_eps', type=float, default=None, help='perturbation radius for defend phase')
 parser.add_argument('--defend_iter', type=int, default=16, help="defend iteration for the adversarial sample computation")
 
-# parser.add_argument('--raw_train', type=bool, default=False, help="raw training without pre-train model loading")
 parser.add_argument("--raw_train", action="store_true")
 parser.add_argument("--abc_special", action="store_true")
 parser.add_argument("--abc_initialize", action="store_true")
@@ -98,7 +96,6 @@ if args.cuda:
 train_loader, test_loader = dataset.get(batch_size=args.batch_size, data_root=args.data_root, num_workers=1)
 
 algo = {'fgsm': fgsm_gt, 'bim': ifgsm_gt, 'pgd': pgd_gt}
-# attack_algo = algo[args.attack_algo]
 
 attack_algo = algo[args.attack_algo] if args.attack_algo is not None else None
 defend_algo = algo[args.defend_algo] if args.defend_algo is not None else None
@@ -140,7 +137,6 @@ weight_name = ["weight"] if not args.abc_special else ["weightA", "weightB", "we
 weight_name = ["weightA", "weightB"] if args.lr_special else weight_name
 
 descripter = "{}_proj_{}_nnz_{}_quant_{}_bits_{}_".format(defend_name, prune_name, args.prune_ratio, quantize_name, args.quantize_bits)
-# descripter = ''
 
 if args.raw_train:
     pass
@@ -173,8 +169,6 @@ elif args.lr_special:
         weights_list, ranks_up = model_base.svd_global_lowrank_weights(k=args.prune_ratio)
         print(ranks_up)
         model = CLlr(ranks_up)
-        # print([weight.shape for weight in weights_list])
-        # print(weights_list)
         model.set_weights(weights_list)
         model.load_state_dict(model_base.state_dict(), strict=False)
         fname = os.path.join(args.savedir, args.prefix_name + descripter + args.save_model_name[0:-4] + ".npy")
@@ -197,10 +191,6 @@ modelu.empty_all()
 
 modelz.load_state_dict(model.state_dict())
 
-# if not args.raw_train:
-#     modelz.load_state_dict()
-# model_feature = torch.nn.DataParallel(model_feature, device_ids=range(args.ngpu))
-
 if args.cuda:
     model = torch.nn.DataParallel(model, device_ids=range(args.ngpu))
     modelu = torch.nn.DataParallel(modelu, device_ids=range(args.ngpu))
@@ -209,14 +199,10 @@ if args.cuda:
     modelu.cuda()
     modelz.cuda()
 
-# optimizer = optim.Adam(model.parameters(), lr=args.lr)
 optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9)
-# optim_pred = optim.Adam(list(model_feature.parameters()) + list(model_pred.parameters()), lr=args.lr)
-# optim_distortion = optim.Adam(model_distortion.parameters())
 
 decreasing_lr = list(map(int, args.decreasing_lr.split(',')))
 
-# crossloss = nn.CrossEntropyLoss
 print('decreasing_lr: ' + str(decreasing_lr))
 best_acc, old_file = 0, None
 t_begin = time.time()
@@ -279,7 +265,6 @@ try:
         if epoch in decreasing_lr:
             optimizer.param_groups[0]['lr'] *= 0.1
         
-        # print("quant_interval {}".format(args.quant_interval))
         message = model_train_proj_prune_admm_quant([model, modelz, modelu], epoch, train_loader, optimizer,
             dfn_algo=defend_algo, dfn_eps=args.defend_eps, 
             log_interval=args.log_interval, iscuda=args.cuda, nnzfix=args.prune_algo=="baseline",
@@ -300,11 +285,9 @@ try:
         print("Elapsed {:.2f}s, {:.2f} s/epoch, {:.2f} s/batch, ets {:.2f}s".format(
             elapse_time, speed_epoch, speed_batch, eta))
         
-        # if train_acc > best_train_acc:
         misc.model_saver(model, args.savedir, args.save_model_name, "sparse_latest_" + descripter)
         if quantize_algo is not None:
             misc.model_saver(modelz, args.savedir, args.save_model_name, "quant_latest_" + descripter)
-            # best_train_acc = train_acc
 
         if epoch % args.test_interval == 0:
 
@@ -312,7 +295,6 @@ try:
                     atk_algo=attack_algo, atk_eps=args.attack_eps, 
                     iscuda=args.cuda, adv_iter=args.defend_iter, criterion=F.cross_entropy)
 
-            # acc = model_uai_test(model_feature, model_pred, epoch, test_loader, attack_algo, args.attack_eps, iscuda=args.cuda, adv_iter=16, criterion=F.cross_entropy)
             layers = layers_nnz(model, param_name=weight_name)[1]
             misc.print_dict(layers, name="MODEL SIZE")
             if quantize_lambda is not None:
@@ -336,33 +318,17 @@ try:
                     print("\t\t closest model saved")
                 
             if acc_adv > best_acc:
-                # new_file = os.path.join(args.loaddir, 'best-{}.pth'.format(epoch))
-                # descripter = args.defend_algo if args.defend_algo is not None else ""
                 descripter = "{}_proj_{}_nnz_{}_quant_{}_bits_{}_".format(defend_name, prune_name, args.prune_ratio, quantize_name, args.quantize_bits)
                 misc.model_saver(model, args.savedir, args.save_model_name, "sparse_" + descripter)
                 if quantize_algo is not None:
                     misc.model_saver(modelz, args.savedir, args.save_model_name, "quant_" + descripter)
-                # misc.model_saver(model, args.savedir, args.save_model_name, "sparse_" + descripter)
-                # if quantize_algo is not None:
-                #     misc.model_saver(modelz, args.savedir, args.save_model_name, "quant_" + descripter)
-                # if args.save_model_name is None:
-                #     if args.defend_algo is not None:
-                #         misc.model_snapshot(model, os.path.join(args.savedir, "sparse_" + args.defend_algo+'_densepretrain.pth'))
-                #         misc.model_snapshot(modelz, os.path.join(args.savedir, "quant_" + args.defend_algo + "_densepretrain.pth"))
-                #     else:
-                #         misc.model_snapshot(model, os.path.join(args.savedir, 'sparse_densepretrain.pth'))
-                #         misc.model_snapshot(modelz, os.path.join(args.savedir, 'quant_densepretrain.pth'))
-                # else:
-                #     misc.model_snapshot(model, os.path.join(args.savedir, "sparse_" + args.save_model_name))
-                #     misc.model_snapshot(modelz, os.path.join(args.savedir, "quant_" + args.save_model_name))
+
                 best_acc = acc_adv
-                # old_file = new_file
 
 except Exception as e:
     import traceback
     traceback.print_exc()
 
 finally:
-    # print("Total Elapse: {:.2f}, Best Result: {:.3f}%".format(time.time() - t_begin, best_acc))
     pass
         

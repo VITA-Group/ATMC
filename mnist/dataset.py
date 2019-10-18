@@ -13,8 +13,7 @@ def get(batch_size, data_root='/tmp/public_dataset/pytorch', train=True, val=Tru
         train_loader = torch.utils.data.DataLoader(
             datasets.MNIST(root=data_root, train=True, download=True,
                            transform=transforms.Compose([
-                               transforms.ToTensor()#,
-                            #    transforms.Normalize((0.1307,), (0.3081,))
+                               transforms.ToTensor()
                            ])),
             batch_size=batch_size, shuffle=True, **kwargs)
         ds.append(train_loader)
@@ -22,8 +21,7 @@ def get(batch_size, data_root='/tmp/public_dataset/pytorch', train=True, val=Tru
         test_loader = torch.utils.data.DataLoader(
             datasets.MNIST(root=data_root, train=False, download=True,
                            transform=transforms.Compose([
-                                transforms.ToTensor()#,
-                                # transforms.Normalize((0.1307,), (0.3081,))
+                                transforms.ToTensor()
                             ])),
             batch_size=batch_size, shuffle=True, **kwargs)
         ds.append(test_loader)

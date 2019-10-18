@@ -10,8 +10,6 @@ class CaffeLeNetSuper(nn.Module):
     def __init__(self, ConvF, LinF, ranks=None, quant_forward=False, bit=32):
         super(CaffeLeNetSuper, self).__init__()
         feature_layers = []
-        # print(ConvF)
-        # print(LinF is Linear_QuantForward)
         if (ConvF is nn.Conv2d and LinF is nn.Linear):
             feature_layers.append(
                 ConvF(in_channels=1, out_channels=20, kernel_size=5)

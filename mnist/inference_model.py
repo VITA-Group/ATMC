@@ -49,7 +49,6 @@ parser.add_argument('--defend_algo', default=None, help='adversarial algo for de
 parser.add_argument('--defend_eps', type=float, default=None, help='perturbation radius for defend phase')
 parser.add_argument('--defend_iter', type=int, default=16, help="defend iteration for the adversarial sample computation")
 
-# parser.add_argument('--raw_train', type=bool, default=False, help="raw training without pre-train model loading")
 parser.add_argument("--raw_train", action="store_true")
 parser.add_argument("--abc_special", action="store_true")
 parser.add_argument("--abc_initialize", action="store_true")
@@ -101,7 +100,6 @@ if args.cuda:
 train_loader, test_loader = dataset.get(batch_size=args.batch_size, data_root=args.data_root, num_workers=1)
 
 algo = {'fgsm': fgsm_gt, 'bim': ifgsm_gt, 'pgd': pgd_gt, "wrm":wrm_gt}
-# attack_algo = algo[args.attack_algo]
 
 attack_algo = algo[args.attack_algo] if args.attack_algo is not None else None
 defend_algo = algo[args.defend_algo] if args.defend_algo is not None else None
@@ -141,7 +139,6 @@ quantize_name = "None" if args.quantize_algo is None else args.quantize_algo
 descripter = "{}_proj_{}_nnz_{}_quant_{}_bits_{}_"\
     .format(defend_name, prune_name, args.prune_ratio, quantize_name, args.quantize_bits) \
         if args.prune_algo is not None or args.quantize_algo is not None else ""
-# descripter = ''
 
 model_base = CLdense()
 weight_name = ["weight"] if not args.abc_special else ["weightA", "weightB", "weightC"]
@@ -211,24 +208,17 @@ modelu.empty_all()
 
 modelz.load_state_dict(model.state_dict())
 
-# if not args.raw_train:
-#     modelz.load_state_dict()
-# model_feature = torch.nn.DataParallel(model_feature, device_ids=range(args.ngpu))
 if args.cuda:
     model.cuda()
     modelu.cuda()
     modelz.cuda()
 
 
-# optimizer = optim.Adam(model.parameters(), lr=args.lr)
 optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9)
-# optim_pred = optim.Adam(list(model_feature.parameters()) + list(model_pred.parameters()), lr=args.lr)
-# optim_distortion = optim.Adam(model_distortion.parameters())
+
 
 decreasing_lr = list(map(int, args.decreasing_lr.split(',')))
 
-# crossloss = nn.CrossEntropyLoss
-# print('decreasing_lr: ' + str(decreasing_lr))
 best_acc, old_file = 0, None
 t_begin = time.time()
 best_train_acc = 0.
@@ -244,12 +234,9 @@ try:
             atk_algo=attack_algo, atk_eps=args.attack_eps, 
             iscuda=args.cuda, adv_iter=args.attack_iter, criterion=F.cross_entropy)
     layers = layers_nnz(model, param_name=weight_name)[1]
-    # misc.print_dict(layers, name="NNZ PER LAYER")
-    # print(all_num)
+
     sparse_factor = sum(layers.values())
-    # print(sparse_factor)
-    # print(weight_name)
-    # print(list(pt.layers_unique(model, param_name=weight_name)))
+
     if quantize_algo is not None:
         if args.quantize_algo == "kmeans_nnz_fixed_0_center":
             weight_bits = [math.ceil(math.log2(item-1)) if item > 1 else 0 for item in list(pt.layers_unique(model, weight_name)[1].values())]
@@ -278,10 +265,8 @@ try:
 
     if args.prune_algo == "baseline":
         prune_idx, Weight_shapes = prune_algo(model, args.prune_ratio, param_name=weight_name)
-        # prune_idx, Weight_shapes = prune_algo(model, sparse_factor, normalized=False, param_name=weight_name)
         prune_lambda = lambda m: idxproj(m, z_idx=prune_idx, W_shapes=Weight_shapes)
     elif args.prune_algo == "l0proj":
-        # prune_lambda = lambda m: prune_algo(m, sparse_factor, normalized=False, param_name=weight_name)
         prune_lambda = lambda m: prune_algo(m, args.prune_ratio, normalized=True, param_name=weight_name)
     elif args.prune_algo == "model_size_prune":
         prune_lambda = lambda wl, wb: prune_algo(wl, wb, model_size)
@@ -311,10 +296,8 @@ try:
             iscuda=args.cuda, adv_iter=args.attack_iter, criterion=F.cross_entropy)
 
         layers = layers_nnz(model, param_name=weight_name)[1]
-        # misc.print_dict(layers, name="NNZ PER LAYER")
-        # print(all_num)
+
         sparse_factor = sum(layers.values())
-        # print(sparse_factor)
         if quantize_algo is not None:
             if args.quantize_algo == "kmeans_nnz_fixed_0_center":
                 weight_bits = [math.ceil(math.log2(item-1)) if item > 1 else 0 for item in list(pt.layers_unique(model, weight_name)[1].values())]
@@ -337,7 +320,6 @@ try:
             
         print("\t weight bits {}".format(weight_bits))
         print("\t MODEL SIZE {}".format(model_size))
-        # f.write("\t weight bits {}".format(weight_bits))
         f.write("TA: %.4f, ATA: %.4f, MODEL SIZE %d\n" % (acc/100, acc_adv/100, model_size))
 
     f.close()
