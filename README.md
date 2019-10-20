@@ -23,7 +23,7 @@ The software environment bases on Pytorch (>=1.0.0).
 One example shows how to setup an experiment on CIFAR-10 dataset.
 
 First of all, we need to obtain a dense model for successors.
-`
+```
 python cifar/train_proj_admm_quant.py \
 --raw_train \
 --epochs 200 \                     
@@ -40,7 +40,7 @@ python cifar/train_proj_admm_quant.py \
 --defend_iter 3 \
 --save_model_name cifar10_res_pgd_pretrain_both_adv_and_natural.pth \        
 --quantize_bits 32  
-`
+```
 
 If you find this repo useful, please cite:
 ```
