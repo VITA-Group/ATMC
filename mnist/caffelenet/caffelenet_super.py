@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from super_module.super_class import Linear_QuantForward, Conv2d_QuantForward
 
 class CaffeLeNetSuper(nn.Module):
     # expansion = 1

@@ -10,7 +10,6 @@ sys.path.append(os.path.join(file_path, '../'))
 sys.path.append(file_path)
 import super_class
 import caffelenet_super
-from super_class import Linear_QuantForward, Conv2d_QuantForward
 
 class CaffeLeNet(caffelenet_super.CaffeLeNetSuper, super_class.DeepOriginalModel):
     def __init__(self, bit):
