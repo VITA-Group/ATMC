@@ -10,7 +10,7 @@ import torch.optim as optim
 import numpy as np
 from utee import misc
 from util_unnormalize import fgsm_gt, pgd_gt, ifgsm_gt
-from util_trts import model_train, model_test, model_train_admm, model_train_proj_prune_admm_quant
+from util_trts import model_test, model_train_proj_prune_admm_quant
 import util_trts
 
 from pruning_tools import l0proj, idxproj, layers_nnz, layers_unique

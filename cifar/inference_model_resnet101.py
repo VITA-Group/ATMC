@@ -10,7 +10,7 @@ import torch.optim as optim
 import numpy as np
 from utee import misc
 from util_unnormalize import fgsm_gt, pgd_gt, ifgsm_gt, wrm_gt
-from util_trts import model_train, model_test, model_train_admm, model_train_proj_prune_admm_quant
+from util_trts import model_test, model_train_proj_prune_admm_quant
 import util_trts
 
 from pruning_tools import l0proj, idxproj, layers_nnz, layers_unique
@@ -23,12 +23,7 @@ from quantize import quantize_kmeans_nnz_fixed_0_center as kmeans_nnz_fixed_0_ce
 # np.set_printoptions(threshold=np.nan)
 
 import dataset
-# from caffelenet.caffelenet_dense import CaffeLeNet as CLdense
-# from caffelenet.caffelenet_abcv2 import CaffeLeNet as CLabcv2
-# from caffelenet.caffelenet_lr import CaffeLeNet as CLlr
-# from resnet.resnet_dense import ResNet34 as CLdense
-# from resnet.resnet_abcv2 import ResNet34 as CLabcv2
-# from resnet.resnet_lr import ResNet34 as CLlr
+
 
 from resnet.resnet_dense import ResNet101 as CLdense
 from resnet.resnet_abcv2 import ResNet101 as CLabcv2
@@ -56,7 +51,6 @@ parser.add_argument('--defend_algo', default=None, help='adversarial algo for de
 parser.add_argument('--defend_eps', type=float, default=None, help='perturbation radius for defend phase')
 parser.add_argument('--defend_iter', type=int, default=7, help="defend iteration for the adversarial sample computation")
 
-# parser.add_argument('--raw_train', type=bool, default=False, help="raw training without pre-train model loading")
 parser.add_argument("--raw_train", action="store_true")
 parser.add_argument("--abc_special", action="store_true")
 parser.add_argument("--abc_initialize", action="store_true")
@@ -146,9 +140,6 @@ else:
 
 quantize_name = "None" if args.quantize_algo is None else args.quantize_algo
 
-# descripter = "{}_proj_{}_nnz_{}_quant_{}_bits_{}_"\
-#     .format(defend_name, prune_name, args.prune_ratio, quantize_name, args.quantize_bits) \
-#         if args.prune_algo is not None or args.quantize_algo is not None else ""
 descripter = ''
 
 
