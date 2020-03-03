@@ -39,7 +39,8 @@ python cifar/train_proj_admm_quant.py \
 --defend_eps 4 \
 --defend_iter 7 \
 --save_model_name cifar10_res_pgd_raw.pth \
---quantize_bits 32
+--quantize_bits 32 \
+--prune_ratio 1.0
 ```
 The dense model will be stored in 'log/resnet/pretrain'. Then, the second round execution of the python script will be operated with
 ```
